@@ -198,6 +198,7 @@ function findRegisteredWorkspaceByPath(workspaces: WorkspaceSummary[], path: str
 type CreateProjectConfigInput = {
 	workerAgent: string;
 	orchestratorAgent: string;
+	orchestratorAccount?: string;
 	trackerIntake?: components["schemas"]["TrackerIntakeConfig"];
 	defaultBranch?: string;
 };
@@ -642,6 +643,7 @@ const replacementErrorCount = Object.keys(orchestratorReplacementErrors).length;
 					projectId: workspace.id,
 					kind: "orchestrator",
 					harness: input.orchestratorAgent as components["schemas"]["SpawnSessionRequest"]["harness"],
+					...(input.orchestratorAccount ? { agentAccountId: input.orchestratorAccount } : {}),
 				},
 			});
 			if (spawnError || !spawnData?.session?.id) {

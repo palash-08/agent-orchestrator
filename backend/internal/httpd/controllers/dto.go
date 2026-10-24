@@ -541,6 +541,8 @@ type SpawnSessionRequest struct {
 	// `ao spawn --name` always sets it; other clients (e.g. the desktop new-task
 	// dialog) may omit it and fall back to the session id in the read model.
 	DisplayName string `json:"displayName,omitempty" maxLength:"100"`
+	// AgentAccountID is the optional provider account the agent runs under.
+	AgentAccountID string `json:"agentAccountId,omitempty"`
 	// Attachments are files pasted or dropped into the task brief. Each carries
 	// its bytes as standard base64 (no data: URL prefix). The daemon writes them
 	// into the session worktree and appends path references to the prompt.
@@ -1238,6 +1240,8 @@ type DelegateTaskRequest struct {
 	// TaskPreparation is the opaque worktree token returned while the New Task
 	// dialog is open. Missing or expired tokens fall back to normal creation.
 	TaskPreparation string `json:"taskPreparation,omitempty"`
+	// AgentAccountID is the optional provider account the delegated worker runs under.
+	AgentAccountID string `json:"agentAccountId,omitempty"`
 }
 
 // PrepareTaskResponse returns the opaque token for a speculative task workspace.
@@ -3724,7 +3728,7 @@ type AgentAccountUsageQuery struct {
 // AgentAccountResponse is one account with its latest readings.
 type AgentAccountResponse struct {
 	ID       string                      `json:"id"`
-	Provider domain.AgentAccountProvider `json:"provider" enum:"claude,codex"`
+	Provider domain.AgentAccountProvider `json:"provider" enum:"claude,codex,agy"`
 	// Device marks the computer's own login, which AO launches with the CLI's
 	// config folder untouched.
 	Device    bool       `json:"device"`
@@ -3745,13 +3749,13 @@ type AgentAccountsResponse struct {
 
 // StartAgentAccountLoginRequest asks to add an account of a provider.
 type StartAgentAccountLoginRequest struct {
-	Provider domain.AgentAccountProvider `json:"provider" enum:"claude,codex"`
+	Provider domain.AgentAccountProvider `json:"provider" enum:"claude,codex,agy"`
 }
 
 // StartAgentAccountLoginResponse is a sign-in running in a terminal.
 type StartAgentAccountLoginResponse struct {
 	OperationID   string                            `json:"operationId"`
-	Provider      domain.AgentAccountProvider       `json:"provider" enum:"claude,codex"`
+	Provider      domain.AgentAccountProvider       `json:"provider" enum:"claude,codex,agy"`
 	ShellTerminal CodexAccountLoginTerminalResponse `json:"shellTerminal"`
 }
 

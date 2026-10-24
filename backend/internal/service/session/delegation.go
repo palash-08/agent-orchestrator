@@ -38,6 +38,7 @@ type DelegateTaskInput struct {
 	TaskPreparation   domain.TaskPreparationToken
 	ClientRequestID   string
 	ClientRequestHash string
+	AgentAccountID    string
 }
 
 // DelegateTaskOutcome identifies the spawned worker. OrchestratorID remains
@@ -110,6 +111,7 @@ func (s *Service) DelegateTask(ctx context.Context, in DelegateTaskInput) (Deleg
 		// finishes starting in the background.
 		Async:           true,
 		TaskPreparation: in.TaskPreparation,
+		AgentAccountID:  in.AgentAccountID,
 	}, project)
 	if err != nil {
 		return DelegateTaskOutcome{}, toSpawnAPIError(err)

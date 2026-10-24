@@ -34,6 +34,7 @@ export function SessionAccountSummary({ session }: { session: WorkspaceSession }
 
 	if (!provider || session.cloud || session.isTerminated) return null;
 	const options = (accounts.data ?? []).filter((account) => account.provider === provider);
+	if (options.length === 0) return null;
 	const currentId = current.data?.[provider];
 	const account = options.find((option) => option.id === currentId);
 	const working = session.activity?.state === "active" || session.activity?.state === "blocked";

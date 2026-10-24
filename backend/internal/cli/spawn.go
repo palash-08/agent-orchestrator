@@ -36,6 +36,7 @@ type spawnOptions struct {
 	noTakeover      bool
 	skipAgentCheck  bool
 	trackerProvider string
+	account         string
 }
 
 // spawnRequest mirrors the daemon's SpawnSessionRequest body for
@@ -54,6 +55,7 @@ type spawnRequest struct {
 	Effort          string `json:"effort,omitempty"`
 	RequestedOutput string `json:"requestedOutput,omitempty"`
 	DisplayName     string `json:"displayName"`
+	AgentAccountID  string `json:"agentAccountId,omitempty"`
 }
 
 type spawnResult struct {
@@ -177,6 +179,7 @@ func newSpawnCommand(ctx *commandContext) *cobra.Command {
 				Effort:          strings.TrimSpace(opts.effort),
 				RequestedOutput: opts.output,
 				DisplayName:     name,
+				AgentAccountID:  strings.TrimSpace(opts.account),
 			}
 			var res spawnResult
 			if err := ctx.postSetupJSON(cmd.Context(), "sessions", req, &res); err != nil {
@@ -243,6 +246,7 @@ func newSpawnCommand(ctx *commandContext) *cobra.Command {
 	f.StringVar(&opts.trackerProvider, "tracker-provider", "github", "Issue tracker provider: github or gitlab (default: github)")
 	f.StringVar(&opts.name, "name", "", "Display name shown in the sidebar (required, max 100 characters)")
 	f.StringVar(&opts.claimPR, "claim-pr", "", "Claim PR ownership metadata only for the spawned session; does not check out the PR branch")
+	f.StringVar(&opts.account, "account", "", "Agent account ID to run the session under (e.g. for multiple agy, codex, or claude accounts)")
 	f.BoolVar(&opts.noTakeover, "no-takeover", false, "Refuse if another active session owns the claimed PR (requires --claim-pr)")
 	f.BoolVar(&opts.skipAgentCheck, "skip-agent-check", false, "Skip CLI readiness warnings (the daemon still validates launch readiness)")
 	return cmd

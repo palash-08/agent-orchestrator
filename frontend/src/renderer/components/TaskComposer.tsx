@@ -60,6 +60,13 @@ import {
 	rememberTaskComposerPreference,
 	type TaskComposerAgentPreference,
 } from "../lib/task-composer-preferences";
+import {
+	agentAccountName,
+	agentAccountProviderFor,
+	useAgentAccounts,
+	type AgentAccount,
+} from "../hooks/useAgentAccounts";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
 
 type Project = components["schemas"]["Project"];
 type DelegateAgent = components["schemas"]["DelegateTaskRequest"]["agent"];
@@ -69,6 +76,7 @@ type CreateTaskInput = {
 	projectId: string;
 	brief: string;
 	agent?: DelegateAgent;
+	agentAccountId?: string;
 	model?: string;
 	effort?: string;
 	mode?: "chat" | "tui";
@@ -230,6 +238,7 @@ export function TaskComposer({
 						projectId: input.projectId,
 						brief: input.brief,
 						agent: input.agent,
+						...(input.agentAccountId ? { agentAccountId: input.agentAccountId } : {}),
 						...(input.model ? { model: input.model } : {}),
 						...(input.effort !== undefined ? { effort: input.effort } : {}),
 						...(input.mode ? { mode: input.mode } : {}),
@@ -281,6 +290,7 @@ export function TaskComposer({
 					prompt: input.brief,
 					displayName,
 					model: input.model,
+					...(input.agentAccountId ? { agentAccountId: input.agentAccountId } : {}),
 					...(input.effort ? { effort: input.effort } : {}),
 					...(input.mode ? { mode: input.mode } : {}),
 					...(input.approvalMode ? { approvalMode: input.approvalMode } : {}),
@@ -568,6 +578,25 @@ export function TaskComposer({
 	const cursorFamilies = listsModelVariants(selectedAgent)
 		? collapseModelVariants((modelCatalog?.models ?? []).filter((item) => isConcreteModelID(item.id)))
 		: undefined;
+
+	// Agent accounts for multi-account selection
+	const agentAccountsQuery = useAgentAccounts(!hostId && !isCloudProject);
+	const accountProvider = agentAccountProviderFor(selectedAgent);
+	const availableAccounts = useMemo(() => {
+		if (!accountProvider) return [];
+		return (agentAccountsQuery.data ?? []).filter((account) => account.provider === accountProvider && account.signedIn);
+	}, [accountProvider, agentAccountsQuery.data]);
+	const rememberedAccount = rememberedConfigForSelectedAgent?.accountId;
+	const defaultAccountId = useMemo(() => {
+		if (rememberedAccount && availableAccounts.some((a) => a.id === rememberedAccount)) {
+			return rememberedAccount;
+		}
+		return availableAccounts.find((a) => a.isDefault)?.id ?? availableAccounts[0]?.id ?? "";
+	}, [availableAccounts, rememberedAccount]);
+	const [selectedAccount, setSelectedAccount] = useState("");
+	const activeAccountId = (selectedAccount && availableAccounts.some((a) => a.id === selectedAccount))
+		? selectedAccount
+		: defaultAccountId;
 	const cursorChoice = cursorFamilies ? findModelVariant(cursorFamilies, selectedModel) : undefined;
 	const pickCursorVariant = (want: { effort?: string; thinking?: boolean }) => {
 		if (!cursorChoice) return;
@@ -684,6 +713,7 @@ export function TaskComposer({
 				projectId,
 				brief,
 				agent: selectedAgent ? (selectedAgent as CreateTaskInput["agent"]) : undefined,
+				agentAccountId: activeAccountId || undefined,
 				model: requestedModel,
 				// Only explicit Codex picks set this; agent changes reset it, and TUI retries preserve it.
 				effort: requestedEffort,
@@ -712,6 +742,7 @@ export function TaskComposer({
 					model: selectedModel ? requestedModel ?? "" : "",
 					mode: selectedMode ? requestedModel ?? "" : "",
 					...(requestedEffort !== undefined ? { effort: requestedEffort } : {}),
+					...(activeAccountId ? { accountId: activeAccountId } : {}),
 				};
 				agentDrafts[selectedAgent] = preference;
 				rememberTaskComposerPreference(preferenceContext, selectedAgent, preference);
@@ -768,9 +799,11 @@ export function TaskComposer({
 						agentDrafts[selectedAgent] = {
 							model: selectedModel ? requestedModel ?? "" : "",
 							mode: selectedMode ? requestedModel ?? "" : "",
-					...(requestedEffort !== undefined ? { effort: requestedEffort } : {}),
+							...(requestedEffort !== undefined ? { effort: requestedEffort } : {}),
+							...(activeAccountId ? { accountId: activeAccountId } : {}),
 						};
 					}
+					setSelectedAccount("");
 					setAgent(value);
 					setAgentTouched(true);
 					setModel("");
@@ -839,7 +872,19 @@ export function TaskComposer({
 						: submitTask(brief, "tui")),
 				onSubmit: (brief) => void submitTask(brief, selectedAgent === "unreal-agent" ? "chat" : requiresTuiFallback ? "tui" : undefined),
 			}}
-			renderAgentControl={(control) => <DesktopAgentControl {...control} hostId={hostId} manageView={isCloudProject ? "cloud" : "local"} />}
+			renderAgentControl={(control) => (
+				<div className="flex items-center gap-1.5">
+					<DesktopAgentControl {...control} hostId={hostId} manageView={isCloudProject ? "cloud" : "local"} />
+					{availableAccounts.length > 1 ? (
+						<TaskAccountPicker
+							accounts={availableAccounts}
+							value={activeAccountId}
+							onChange={setSelectedAccount}
+							disabled={isSubmitting}
+						/>
+					) : null}
+				</div>
+			)}
 			renderEffortControl={(control) => <TaskEffortPicker {...control} value={control.value || cloudDefaultEffort} defaultEffort={cursorChoice ? undefined : inheritedEffort || effortModel?.defaultEffort} availability={cursorChoice ? "supported" : effortAvailability}
 				footer={cursorChoice?.family.hasThinkingChoice ? <ToggleRow label={t("agentSwitch.thinking")} checked={cursorChoice.variant.thinking} onChange={(thinking) => pickCursorVariant({ thinking })} /> : undefined} />}
 			renderModelControl={(control) => <TaskModelPicker {...control} onRefresh={refreshSelectedModels}
@@ -892,6 +937,43 @@ function DesktopAgentControl({ hostId, manageView, ...control }: TaskComposerAge
 			triggerClassName="composer-toolbar-option w-fit"
 			contentClassName={COMPOSER_MENU_WIDTH}
 		/>
+	);
+}
+
+function TaskAccountPicker({
+	accounts,
+	value,
+	onChange,
+	disabled,
+}: {
+	accounts: AgentAccount[];
+	value: string;
+	onChange: (value: string) => void;
+	disabled?: boolean;
+}) {
+	const { t } = useTranslation();
+	const active = accounts.find((a) => a.id === value) ?? accounts[0];
+	if (!active) return null;
+
+	return (
+		<Select value={active.id} onValueChange={onChange} disabled={disabled}>
+			<SelectTrigger
+				size="sm"
+				className="composer-chip composer-toolbar-option w-fit max-w-44"
+				aria-label={t("settings.agentAccounts.sessionAccount")}
+			>
+				<span className="min-w-0 truncate text-control text-foreground" title={agentAccountName(active, t)}>
+					{agentAccountName(active, t)}
+				</span>
+			</SelectTrigger>
+			<SelectContent align="start" className={COMPOSER_MENU_WIDTH}>
+				{accounts.map((account) => (
+					<SelectItem key={account.id} value={account.id}>
+						{agentAccountName(account, t)}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
 	);
 }
 

@@ -13,10 +13,11 @@ type AgentAccountProvider string
 const (
 	AgentAccountProviderClaude AgentAccountProvider = "claude"
 	AgentAccountProviderCodex  AgentAccountProvider = "codex"
+	AgentAccountProviderAgy    AgentAccountProvider = "agy"
 )
 
 // AgentAccountProviders lists every provider in display order.
-var AgentAccountProviders = []AgentAccountProvider{AgentAccountProviderClaude, AgentAccountProviderCodex}
+var AgentAccountProviders = []AgentAccountProvider{AgentAccountProviderClaude, AgentAccountProviderCodex, AgentAccountProviderAgy}
 
 // AgentAccountProviderFor reports the account provider behind a harness, or
 // false when the harness has no accounts.
@@ -26,6 +27,8 @@ func AgentAccountProviderFor(h AgentHarness) (AgentAccountProvider, bool) {
 		return AgentAccountProviderClaude, true
 	case HarnessCodex:
 		return AgentAccountProviderCodex, true
+	case HarnessAgy:
+		return AgentAccountProviderAgy, true
 	}
 	return "", false
 }

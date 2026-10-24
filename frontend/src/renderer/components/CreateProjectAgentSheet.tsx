@@ -27,6 +27,7 @@ import { useSettings } from "../hooks/useSettings";
 import { AgentAvatar } from "./AgentAvatar";
 import { FieldDefaultHint } from "./FieldDefaultHint";
 import { buildIntake, type IntakeForm, IntakeFields, intakeNeedsRule } from "./IntakeFields";
+import { agentAccountName, agentAccountProviderFor, useAgentAccounts } from "../hooks/useAgentAccounts";
 import { AgentSelectMenuItem } from "./settings/AgentSelectMenuItem";
 import { SettingsRow } from "./settings/SettingsRow";
 import { SettingsOptionMenu } from "./settings/SettingsOptionMenu";
@@ -41,6 +42,7 @@ type TrackerIntakeConfig = components["schemas"]["TrackerIntakeConfig"];
 export type CreateProjectAgentSelection = {
 	workerAgent: string;
 	orchestratorAgent: string;
+	orchestratorAccount?: string;
 	trackerIntake?: TrackerIntakeConfig;
 };
 
@@ -174,8 +176,22 @@ export function CreateProjectAgentSheet({
 	const displayError = agentsError ?? (hostId && agents && selectableAgents.length === 0 ? t("agentSelector.noneReady") : null);
 	const [workerAgent, setWorkerAgent] = useState("");
 	const [orchestratorAgent, setOrchestratorAgent] = useState("");
+	const [orchestratorAccount, setOrchestratorAccount] = useState("");
 	const [workerAgentTouched, setWorkerAgentTouched] = useState(false);
 	const [orchestratorAgentTouched, setOrchestratorAgentTouched] = useState(false);
+
+	const accountsQuery = useAgentAccounts(contentOpen && connected && !hostId);
+	const orchAccountProvider = agentAccountProviderFor(orchestratorAgent);
+	const availableOrchAccounts = useMemo(() => {
+		if (!orchAccountProvider) return [];
+		return (accountsQuery.data ?? []).filter((account) => account.provider === orchAccountProvider && account.signedIn);
+	}, [orchAccountProvider, accountsQuery.data]);
+	const defaultOrchAccount = useMemo(() => {
+		return availableOrchAccounts.find((a) => a.isDefault)?.id ?? availableOrchAccounts[0]?.id ?? "";
+	}, [availableOrchAccounts]);
+	const activeOrchestratorAccountId = (orchestratorAccount && availableOrchAccounts.some((a) => a.id === orchestratorAccount))
+		? orchestratorAccount
+		: defaultOrchAccount;
 	useEnsureAgentReadiness({
 		agentIds: [workerAgent, orchestratorAgent],
 		enabled: contentOpen && connected && (workerAgent !== "" || orchestratorAgent !== ""),
@@ -208,6 +224,7 @@ export function CreateProjectAgentSheet({
 		if (open && !wasOpen.current) {
 			setWorkerAgent("");
 			setOrchestratorAgent("");
+			setOrchestratorAccount("");
 			setWorkerAgentTouched(false);
 			setOrchestratorAgentTouched(false);
 			setIntake(EMPTY_INTAKE);
@@ -294,22 +311,42 @@ export function CreateProjectAgentSheet({
 								/>
 							),
 							orchestrator: (
-								<RequiredAgentField
-									id="newProjectOrchestratorAgent"
-									label={t("createProject.orchestratorAgent")}
-									placeholder={t("createProject.selectOrchestrator")}
-									value={orchestratorAgent}
-									agents={selectableAgents}
-									disabled={isLoadingAgents}
-									labelClassName="agents-sheet-label"
-									triggerClassName="agents-sheet-control"
-									contentClassName="agents-sheet-menu"
-									hostId={hostId}
-									onChange={(value) => {
-										setOrchestratorAgent(value);
-										setOrchestratorAgentTouched(true);
-									}}
-								/>
+								<div className="space-y-1.5">
+									<RequiredAgentField
+										id="newProjectOrchestratorAgent"
+										label={t("createProject.orchestratorAgent")}
+										placeholder={t("createProject.selectOrchestrator")}
+										value={orchestratorAgent}
+										agents={selectableAgents}
+										disabled={isLoadingAgents}
+										labelClassName="agents-sheet-label"
+										triggerClassName="agents-sheet-control"
+										contentClassName="agents-sheet-menu"
+										hostId={hostId}
+										onChange={(value) => {
+											setOrchestratorAccount("");
+											setOrchestratorAgent(value);
+											setOrchestratorAgentTouched(true);
+										}}
+									/>
+									{availableOrchAccounts.length > 1 ? (
+										<div className="flex items-center justify-between text-xs pt-1">
+											<span className="text-muted-foreground">{t("settings.agentAccounts.sessionAccount")}</span>
+											<Select value={activeOrchestratorAccountId} onValueChange={setOrchestratorAccount}>
+												<SelectTrigger size="sm" className="agents-sheet-control h-8 max-w-56 text-xs">
+													<SelectValue />
+												</SelectTrigger>
+												<SelectContent align="end">
+													{availableOrchAccounts.map((opt) => (
+														<SelectItem key={opt.id} value={opt.id}>
+															{agentAccountName(opt, t)}
+														</SelectItem>
+													))}
+												</SelectContent>
+											</Select>
+										</div>
+									) : null}
+								</div>
 							),
 						}}
 						agents={{
@@ -352,7 +389,12 @@ export function CreateProjectAgentSheet({
 						isBusy={isBusy}
 						onCancel={() => onOpenChange(false)}
 						onSubmit={() =>
-							void onSubmit({ workerAgent, orchestratorAgent, trackerIntake: intakeVisible ? buildIntake(intake) : undefined })
+							void onSubmit({
+								workerAgent,
+								orchestratorAgent,
+								orchestratorAccount: activeOrchestratorAccountId || undefined,
+								trackerIntake: intakeVisible ? buildIntake(intake) : undefined,
+							})
 						}
 						setupNotice={
 							repositorySetupNeeded

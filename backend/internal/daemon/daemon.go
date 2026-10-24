@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 
+	agyagent "github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/agy"
 	"github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/binaryutil"
 	claudecodeagent "github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/claudecode"
 	codexagent "github.com/aoagents/agent-orchestrator/backend/internal/adapters/agent/codex"
@@ -577,6 +578,7 @@ func Run(buildVersion string) error {
 			harness := map[domain.AgentAccountProvider]domain.AgentHarness{
 				domain.AgentAccountProviderClaude: domain.HarnessClaudeCode,
 				domain.AgentAccountProviderCodex:  domain.HarnessCodex,
+				domain.AgentAccountProviderAgy:    domain.HarnessAgy,
 			}[p]
 			if harness != "" {
 				agentSvc.InvalidateAgentAuthentication(string(harness))
@@ -1441,9 +1443,11 @@ func newAgentAccounts(cfg config.Config, store *sqlite.Store, codexHome string, 
 	} else if home, err := os.UserHomeDir(); err == nil {
 		claudeHome, claudeConfig = filepath.Join(home, ".claude"), filepath.Join(home, ".claude.json")
 	}
+	agyHome, _ := agyagent.GeminiHome(nil)
 	providers := []ports.AgentAccountProviderCLI{
 		&agentaccount.Claude{Binary: claudecodeagent.New().ResolveBinary, DeviceHome: claudeHome, DeviceConfig: claudeConfig},
 		&agentaccount.Codex{Binary: codexagent.New().ResolveBinary, Accounts: codexAccounts, DeviceHome: codexHome},
+		&agentaccount.Agy{Binary: agyagent.New().ResolveBinary, DeviceHome: agyHome},
 	}
 	return agentaccounts.New(store, providers, filepath.Join(cfg.StateDir, "agent-accounts"), nil, log)
 }

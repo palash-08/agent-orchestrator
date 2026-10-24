@@ -103,6 +103,7 @@ import { TaskComposer } from "./TaskComposer";
 import { CloudCpError } from "../lib/cloud-cp";
 import { agentReadiness } from "../test/agent-readiness-fixtures";
 import { agentReadinessQueryKey } from "../hooks/useAgentReadinessQuery";
+import { agentAccountsQueryKey } from "../hooks/useAgentAccounts";
 import { providerConnectionsQueryKey } from "../hooks/useProviderConnections";
 import { cacheAgentModels, clearCachedAgentModels } from "../lib/agent-model-cache";
 import { useUiStore } from "../stores/ui-store";
@@ -2457,5 +2458,50 @@ describe("TaskComposer", () => {
 			act(() => { window.dispatchEvent(new Event("focus")); });
 			await waitFor(() => expect(screen.queryByTestId("model-catalog-notice")).not.toBeInTheDocument());
 		});
+	});
+
+	it("renders an account selector when multiple agy accounts exist and sends chosen agentAccountId", async () => {
+		h.agentCatalog = { agents: [agentReadiness("agy", "Antigravity", { authentication: "authorized" })] };
+		h.get.mockImplementation(async (path: string) => {
+			if (path === "/api/v1/projects/{id}") {
+				return { data: { status: "ok", project: { id: "proj-1", displayName: "Proj 1", config: { worker: { agent: "agy" } } } } };
+			}
+			if (path === "/api/v1/agents/accounts") {
+				return {
+					data: {
+						accounts: [
+							{ id: "device-agy", provider: "agy", email: "work@corp.com", signedIn: true, isDefault: true },
+							{ id: "agy-personal", provider: "agy", email: "personal@gmail.com", signedIn: true, isDefault: false },
+						],
+					},
+				};
+			}
+			return { data: { models: [] } };
+		});
+		h.post.mockResolvedValueOnce({ data: { workerId: "worker-agy" } });
+
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		queryClient.setQueryData(agentAccountsQueryKey, [
+			{ id: "device-agy", provider: "agy", email: "work@corp.com", signedIn: true, isDefault: true },
+			{ id: "agy-personal", provider: "agy", email: "personal@gmail.com", signedIn: true, isDefault: false },
+		]);
+
+		render(<Wrap queryClient={queryClient}><TaskComposer projectId="proj-1" onCreated={vi.fn()} /></Wrap>);
+
+		await screen.findByRole("textbox", { name: "Task" });
+		expect(screen.getByRole("combobox", { name: "Account" })).toBeInTheDocument();
+		expect(screen.getByRole("combobox", { name: "Account" })).toHaveTextContent("work@corp.com");
+
+		fireEvent.change(task(), { target: { value: "Build feature" } });
+		await waitForTaskReady();
+		fireEvent.click(startTask());
+
+		await waitFor(() => expect(h.post).toHaveBeenCalled());
+		const delegateCall = h.post.mock.calls.find(([path]) => path === "/api/v1/orchestrators/delegate");
+		expect(delegateCall).toBeDefined();
+		expect(delegateCall![1].body).toEqual(expect.objectContaining({
+			agent: "agy",
+			agentAccountId: "device-agy",
+		}));
 	});
 });

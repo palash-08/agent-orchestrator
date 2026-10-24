@@ -4,6 +4,7 @@ export type TaskComposerAgentPreference = {
 	model: string;
 	mode: string;
 	effort?: string;
+	accountId?: string;
 };
 
 export type TaskComposerContextPreferences = {
@@ -41,13 +42,15 @@ function readAll(): TaskComposerPreferences {
 			const agents: Record<string, TaskComposerAgentPreference> = {};
 			for (const [agent, config] of Object.entries(candidate.agents)) {
 				if (!config || typeof config !== "object" || Array.isArray(config)) continue;
-				const fields = config as { model?: unknown; mode?: unknown; effort?: unknown };
+				const fields = config as { model?: unknown; mode?: unknown; effort?: unknown; accountId?: unknown };
 				if (typeof fields.model !== "string" || typeof fields.mode !== "string") continue;
 				if (fields.effort !== undefined && typeof fields.effort !== "string") continue;
+				if (fields.accountId !== undefined && typeof fields.accountId !== "string") continue;
 				agents[agent] = {
 					model: fields.model,
 					mode: fields.mode,
 					...(typeof fields.effort === "string" ? { effort: fields.effort } : {}),
+					...(typeof fields.accountId === "string" ? { accountId: fields.accountId } : {}),
 				};
 			}
 			preferences[context] = { lastAgent: candidate.lastAgent, agents };

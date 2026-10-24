@@ -50,7 +50,7 @@ export function HarnessAccountTab({ details, hostId, authWorkflowActive, copied,
 	// and Codex. A saved account new tasks start on is listed even without it:
 	// readiness then speaks for that account, not for the CLI's own login.
 	const accountsPreview = useUiStore((state) => state.developerMode);
-	const accountProvider = (accountsPreview || followsSavedAccount(details.readinessAgent)) && !hostId && isInstalled ? agentAccountProviderFor(details.agentId) : null;
+	const accountProvider = (accountsPreview || details.agentId === "agy" || followsSavedAccount(details.readinessAgent)) && !hostId && isInstalled ? agentAccountProviderFor(details.agentId) : null;
 	// Progress reads as a solid state, not a greyed-out action.
 	const progressAction = <span role="status"><Button type="button" size="sm" variant="secondary" className={cn(ACTION_CLASS, "disabled:opacity-100")} aria-busy="true" disabled><LoaderCircle className="animate-spin" aria-hidden="true" />{details.progressLabel}</Button></span>;
 	const authBusyAction = <Button type="button" size="sm" className={ACTION_CLASS} disabled>

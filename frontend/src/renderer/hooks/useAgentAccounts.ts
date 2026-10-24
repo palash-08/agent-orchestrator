@@ -19,6 +19,7 @@ const sessionAccountsKey = (sessionId: string) => ["agent-accounts", "session", 
 export function agentAccountProviderFor(harness: string | undefined): AgentAccountProvider | null {
 	if (harness === "claude-code") return "claude";
 	if (harness === "codex") return "codex";
+	if (harness === "agy") return "agy";
 	return null;
 }
 
@@ -42,7 +43,7 @@ export function useAgentAccounts(enabled = true) {
 	return useQuery({ queryKey: agentAccountsQueryKey, queryFn: () => fetchAgentAccounts(), refetchInterval: 60_000, enabled });
 }
 
-export const agentAccountProviderNames: Record<AgentAccountProvider, string> = { claude: "Claude Code", codex: "Codex" };
+export const agentAccountProviderNames: Record<AgentAccountProvider, string> = { claude: "Claude Code", codex: "Codex", agy: "Antigravity" };
 
 type AccountNameT = (key: "settings.agentAccounts.cliLoginOf" | "settings.agentAccounts.oauthToken", options?: { provider: string }) => string;
 

@@ -12851,6 +12851,7 @@ components:
           enum:
           - claude
           - codex
+          - agy
           type: string
         signedIn:
           type: boolean
@@ -16245,6 +16246,8 @@ components:
           - memcode
           - hermes
           - fake
+          type: string
+        agentAccountId:
           type: string
         approvalMode:
           enum:
@@ -20232,6 +20235,8 @@ components:
       type: object
     SpawnSessionRequest:
       properties:
+        agentAccountId:
+          type: string
         approvalMode:
           enum:
           - default
@@ -20367,6 +20372,7 @@ components:
           enum:
           - claude
           - codex
+          - agy
           type: string
       required:
       - provider
@@ -20379,6 +20385,7 @@ components:
           enum:
           - claude
           - codex
+          - agy
           type: string
         shellTerminal:
           $ref: '#/components/schemas/CodexAccountLoginTerminalResponse'
